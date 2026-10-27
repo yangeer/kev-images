@@ -44,6 +44,7 @@ class SystemOneRequest(BaseModel):
     state: JSONContent
     model: str = "kev-latest"
     questions: dict[str, Question] = Field(min_length=1)
+    images: list[str] = Field(default_factory=list, max_length=8)
 
 
 def render(v: JSONContent, indent: int = 0) -> str:

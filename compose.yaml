@@ -1,0 +1,33 @@
+services:
+  kev-api:
+    image: kev-api:local
+    restart: unless-stopped
+    environment:
+      KEV_MODEL_ROOT: ${MODEL_ROOT:?Set MODEL_ROOT to the absolute models directory}
+      KEV_DTYPE: bf16
+    volumes:
+      - ${MODEL_ROOT}:${MODEL_ROOT}:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_ID:?Set GPU_ID to a free host GPU index}"]
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8009/v1/models', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 180s
+
+  kev-playground:
+    image: kev-playground:local
+    restart: unless-stopped
+    environment:
+      KEV_API: http://kev-api:8009
+    ports:
+      - "3001:3000"
+    depends_on:
+      kev-api:
+        condition: service_healthy

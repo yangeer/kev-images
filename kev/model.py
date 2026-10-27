@@ -20,11 +20,19 @@ def load_tokenizer(name, revision=None):
 _SPECIAL_RE = re.compile(r"<\|([A-Za-z0-9_]+)\|>")
 
 
-def user_tokens(tok, text):
-    """Tokenize caller-supplied text so it can never produce delimiter/control tokens (option boundaries are unforgeable).
-    The fast tokenizer ignores split_special_tokens, so `<|name|>` is rewritten to `<¦name¦>` before tokenizing."""
-    return tok(_SPECIAL_RE.sub(r"<¦\1¦>", text), add_special_tokens=False).input_ids
+# def user_tokens(tok, text):
+#     """Tokenize caller-supplied text so it can never produce delimiter/control tokens (option boundaries are unforgeable).
+#     The fast tokenizer ignores split_special_tokens, so `<|name|>` is rewritten to `<¦name¦>` before tokenizing."""
+#     return tok(_SPECIAL_RE.sub(r"<¦\1¦>", text), add_special_tokens=False).input_ids
 
+def user_text(text):
+    """Escape caller-supplied delimiter/control tokens."""
+    return _SPECIAL_RE.sub(r"<¦\1¦>", text)
+
+
+def user_tokens(tok, text):
+    """Tokenize caller text without allowing forged control tokens."""
+    return tok(user_text(text), add_special_tokens=False).input_ids
 
 OPT_NONE, OPT_DECIDE = -1, -2   # values of enc["opt"]: instruction/state tokens, and the <decide> token
 

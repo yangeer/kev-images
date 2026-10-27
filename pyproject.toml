@@ -37,6 +37,9 @@ Issues = "https://github.com/jaredpalmer/kev/issues"
 [project.optional-dependencies]
 serve = [
     "fastapi>=0.115",
+    "httpx[socks]>=0.28.1",
+    "pillow>=12.3.0",
+    "torchvision>=0.23.0",
     "typesafe-sdk>=0.6.0",
     "uvicorn>=0.30",
 ]

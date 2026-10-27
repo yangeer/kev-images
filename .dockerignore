@@ -1,0 +1,13 @@
+.git
+.venv
+models
+dist
+runs
+evals
+experiments
+docs
+space
+playground
+node_modules
+__pycache__
+*.pyc

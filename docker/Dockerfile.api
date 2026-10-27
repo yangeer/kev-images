@@ -1,0 +1,18 @@
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1 \
+    KEV_DTYPE=bf16
+
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY docker/requirements.serve.txt /tmp/requirements.serve.txt
+RUN python -m pip install --no-cache-dir -r /tmp/requirements.serve.txt
+COPY kev/ /app/kev/
+COPY docker/serve.py /app/docker/serve.py
+
+CMD ["python", "/app/docker/serve.py"]

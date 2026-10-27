@@ -139,6 +139,65 @@ class Checkpoint:
         m.head.temperature = meta.temperature if opts.temperature is None else opts.temperature
         return tok, m
 
+    def load_vision(self, model, tok, opts=LoadOptions()):
+        """Attach the loaded Kev language backbone to full Qwen3.5."""
+        from transformers import (
+            AutoConfig,
+            AutoProcessor,
+            Qwen3_5Model,
+        )
+        from .vision import VisionPredictor
+
+        meta = self.meta
+        config = AutoConfig.from_pretrained(
+            meta.base,
+            revision=meta.base_revision,
+        )
+
+        if config.model_type != "qwen3_5":
+            raise ValueError(
+                "image input currently requires a Qwen3.5 checkpoint"
+            )
+        if meta.option_isolation:
+            raise ValueError(
+                "image input does not support option_isolation"
+            )
+
+        dtype = model.lm.get_input_embeddings().weight.dtype
+        attn = opts.attn or (
+            "sdpa" if str(model.device).startswith("cuda") else "eager"
+        )
+
+        processor = AutoProcessor.from_pretrained(
+            meta.base,
+            revision=meta.base_revision,
+        )
+
+        # Load on CPU so the temporary duplicate language backbone
+        # does not occupy accelerator memory.
+        backbone, loading = Qwen3_5Model.from_pretrained(
+            meta.base,
+            revision=meta.base_revision,
+            dtype=dtype,
+            attn_implementation=attn,
+            device_map="cpu",
+            output_loading_info=True,
+        )
+
+        if loading["missing_keys"] or loading.get("mismatched_keys"):
+            raise ValueError(
+                "incomplete multimodal base load: "
+                f"missing={loading['missing_keys']}, "
+                f"mismatched={loading.get('mismatched_keys', [])}"
+            )
+
+        # model.lm already contains the checkpoint's loaded/merged LoRA.
+        # Replace only the language backbone; keep pretrained vision.
+        backbone.language_model = model.lm
+        backbone = backbone.to(model.device).eval()
+
+        return VisionPredictor(processor, backbone, model, tok)
+
     COMPAT_FIELDS = ("base", "base_revision", "lora", "head_dim", "option_isolation", "special_embeddings")
 
     def warm_start(self, model, ours):

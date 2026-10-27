@@ -1,0 +1,458 @@
+{
+  "date": "2026-10-27",
+  "image_path": "/home/AI/kev/output/imagegen/street-decision-20261026.png",
+  "image_sha256": "1f73bf465ff40923c52fac5d831c0e04107193a23337807328eadebc5496b4da",
+  "payload_sha256": "3d61a7dfdafb2836eec1fab318475cc06fa521781763580fc9c029621b1f4387",
+  "questions": {
+    "people_count": {
+      "type": "choice",
+      "instructions": "图片中能辨认出多少个人？包括部分被遮挡但能确认是人的目标。",
+      "criteria": {
+        "zero": "0人",
+        "one": "1人",
+        "two": "2人",
+        "three_four": "3至4人",
+        "five_plus": "5人及以上",
+        "unclear": "画面过于模糊，无法判断"
+      }
+    },
+    "traffic_light": {
+      "type": "choice",
+      "instructions": "图片中最明显的一组机动车交通信号灯，当前亮着什么颜色？",
+      "criteria": {
+        "red": "红灯",
+        "yellow": "黄灯",
+        "green": "绿灯",
+        "off": "可见信号灯，但没有灯亮",
+        "absent": "没有可见的机动车交通信号灯",
+        "unclear": "有信号灯，但颜色无法辨认"
+      }
+    },
+    "spatial_relation": {
+      "type": "choice",
+      "instructions": "找出画面中面积最大的行人和面积最大的汽车。比较两者外接框的水平中心，行人在汽车的哪一侧？",
+      "criteria": {
+        "left": "行人在汽车左侧",
+        "right": "行人在汽车右侧",
+        "aligned": "两者水平中心基本对齐",
+        "missing": "缺少行人或汽车，无法比较",
+        "unclear": "目标无法辨认"
+      }
+    },
+    "person_on_crosswalk": {
+      "type": "noul",
+      "instructions": "是否至少有一名行人的脚落在可见的斑马线区域内？仅站在斑马线旁边不算。没有斑马线或行人则回答否。"
+    },
+    "visible_text": {
+      "type": "noul",
+      "instructions": "图片中是否出现清晰可辨的完整英文单词 STOP？只判断可见文字，不根据标志的形状或颜色推测。"
+    }
+  },
+  "state": "附图是一张街景照片。根据实际可见内容回答。左右均以观看图片的人的视角为准。不要根据常识补充图片中看不到的信息。",
+  "server": {
+    "models": [
+      {
+        "id": "kev-latest",
+        "aliases": [
+          "jev-latest"
+        ],
+        "run": "/home/AI/models/kev-0.8b",
+        "base": "Qwen/Qwen3.5-0.8B-Base",
+        "lora": 16,
+        "device": "cuda",
+        "temperature": 2.3510958125672174,
+        "vision": true,
+        "prefix_cache": {
+          "size": 4,
+          "min_state_tokens": 384,
+          "hits": 0,
+          "misses": 0,
+          "cached_states": 0
+        }
+      }
+    ]
+  },
+  "base_snapshot": "/root/.cache/huggingface/hub/models--Qwen--Qwen3.5-0.8B-Base/snapshots/dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68",
+  "checkpoint_snapshot": "/root/.cache/huggingface/hub/models--jaredpalmer--kev-0.8b/snapshots/bf75a6a8848ea6960ff2ed108d9ed44c2941174f",
+  "vision_source_sha256": "524ebbf4183527bb228cd1ebf5a46002c7fedf935f7be6c1b9509c97875f5081",
+  "load_environment": {
+    "KEV_DTYPE": null,
+    "KEV_MERGE": null,
+    "KEV_ATTN": null,
+    "KEV_TEMPERATURE": null
+  },
+  "summary": {
+    "historical_single_request_ms": 6077.4,
+    "first_request_ms": 3046.9,
+    "warm_requests": 5,
+    "warm_mean_ms": 1478.96,
+    "warm_median_ms": 1466.4,
+    "warm_min_ms": 1426.3,
+    "warm_max_ms": 1572.7,
+    "historical_vs_warm_mean_ratio": 4.109238924649754,
+    "warm_mean_reduction_percent": 75.6645934116563
+  },
+  "requests": [
+    {
+      "request": 1,
+      "client_elapsed_ms": 3075.0,
+      "response": {
+        "model": "kev-latest",
+        "answers": {
+          "people_count": {
+            "type": "choice",
+            "choice": "two",
+            "confidence": 0.05,
+            "probabilities": {
+              "zero": 0.12,
+              "one": 0.17,
+              "two": 0.21,
+              "three_four": 0.19,
+              "five_plus": 0.19,
+              "unclear": 0.11
+            }
+          },
+          "traffic_light": {
+            "type": "choice",
+            "choice": "red",
+            "confidence": 0.13,
+            "probabilities": {
+              "red": 0.27,
+              "yellow": 0.1,
+              "green": 0.04,
+              "off": 0.16,
+              "absent": 0.25,
+              "unclear": 0.18
+            }
+          },
+          "spatial_relation": {
+            "type": "choice",
+            "choice": "missing",
+            "confidence": 0.07,
+            "probabilities": {
+              "left": 0.22,
+              "right": 0.2,
+              "aligned": 0.12,
+              "missing": 0.26,
+              "unclear": 0.2
+            }
+          },
+          "person_on_crosswalk": {
+            "type": "noul",
+            "noul": 0.86
+          },
+          "visible_text": {
+            "type": "noul",
+            "noul": 0.88
+          }
+        },
+        "usage": {
+          "input_tokens": 8138,
+          "output_tokens": 288
+        },
+        "latency_ms": 3046.9
+      }
+    },
+    {
+      "request": 2,
+      "client_elapsed_ms": 1588.6,
+      "response": {
+        "model": "kev-latest",
+        "answers": {
+          "people_count": {
+            "type": "choice",
+            "choice": "two",
+            "confidence": 0.05,
+            "probabilities": {
+              "zero": 0.12,
+              "one": 0.17,
+              "two": 0.21,
+              "three_four": 0.19,
+              "five_plus": 0.19,
+              "unclear": 0.11
+            }
+          },
+          "traffic_light": {
+            "type": "choice",
+            "choice": "red",
+            "confidence": 0.13,
+            "probabilities": {
+              "red": 0.27,
+              "yellow": 0.1,
+              "green": 0.04,
+              "off": 0.16,
+              "absent": 0.25,
+              "unclear": 0.18
+            }
+          },
+          "spatial_relation": {
+            "type": "choice",
+            "choice": "missing",
+            "confidence": 0.07,
+            "probabilities": {
+              "left": 0.22,
+              "right": 0.2,
+              "aligned": 0.12,
+              "missing": 0.26,
+              "unclear": 0.2
+            }
+          },
+          "person_on_crosswalk": {
+            "type": "noul",
+            "noul": 0.86
+          },
+          "visible_text": {
+            "type": "noul",
+            "noul": 0.88
+          }
+        },
+        "usage": {
+          "input_tokens": 8138,
+          "output_tokens": 288
+        },
+        "latency_ms": 1572.7
+      }
+    },
+    {
+      "request": 3,
+      "client_elapsed_ms": 1499.14,
+      "response": {
+        "model": "kev-latest",
+        "answers": {
+          "people_count": {
+            "type": "choice",
+            "choice": "two",
+            "confidence": 0.05,
+            "probabilities": {
+              "zero": 0.12,
+              "one": 0.17,
+              "two": 0.21,
+              "three_four": 0.19,
+              "five_plus": 0.19,
+              "unclear": 0.11
+            }
+          },
+          "traffic_light": {
+            "type": "choice",
+            "choice": "red",
+            "confidence": 0.13,
+            "probabilities": {
+              "red": 0.27,
+              "yellow": 0.1,
+              "green": 0.04,
+              "off": 0.16,
+              "absent": 0.25,
+              "unclear": 0.18
+            }
+          },
+          "spatial_relation": {
+            "type": "choice",
+            "choice": "missing",
+            "confidence": 0.07,
+            "probabilities": {
+              "left": 0.22,
+              "right": 0.2,
+              "aligned": 0.12,
+              "missing": 0.26,
+              "unclear": 0.2
+            }
+          },
+          "person_on_crosswalk": {
+            "type": "noul",
+            "noul": 0.86
+          },
+          "visible_text": {
+            "type": "noul",
+            "noul": 0.88
+          }
+        },
+        "usage": {
+          "input_tokens": 8138,
+          "output_tokens": 288
+        },
+        "latency_ms": 1485.8
+      }
+    },
+    {
+      "request": 4,
+      "client_elapsed_ms": 1457.18,
+      "response": {
+        "model": "kev-latest",
+        "answers": {
+          "people_count": {
+            "type": "choice",
+            "choice": "two",
+            "confidence": 0.05,
+            "probabilities": {
+              "zero": 0.12,
+              "one": 0.17,
+              "two": 0.21,
+              "three_four": 0.19,
+              "five_plus": 0.19,
+              "unclear": 0.11
+            }
+          },
+          "traffic_light": {
+            "type": "choice",
+            "choice": "red",
+            "confidence": 0.13,
+            "probabilities": {
+              "red": 0.27,
+              "yellow": 0.1,
+              "green": 0.04,
+              "off": 0.16,
+              "absent": 0.25,
+              "unclear": 0.18
+            }
+          },
+          "spatial_relation": {
+            "type": "choice",
+            "choice": "missing",
+            "confidence": 0.07,
+            "probabilities": {
+              "left": 0.22,
+              "right": 0.2,
+              "aligned": 0.12,
+              "missing": 0.26,
+              "unclear": 0.2
+            }
+          },
+          "person_on_crosswalk": {
+            "type": "noul",
+            "noul": 0.86
+          },
+          "visible_text": {
+            "type": "noul",
+            "noul": 0.88
+          }
+        },
+        "usage": {
+          "input_tokens": 8138,
+          "output_tokens": 288
+        },
+        "latency_ms": 1443.6
+      }
+    },
+    {
+      "request": 5,
+      "client_elapsed_ms": 1479.07,
+      "response": {
+        "model": "kev-latest",
+        "answers": {
+          "people_count": {
+            "type": "choice",
+            "choice": "two",
+            "confidence": 0.05,
+            "probabilities": {
+              "zero": 0.12,
+              "one": 0.17,
+              "two": 0.21,
+              "three_four": 0.19,
+              "five_plus": 0.19,
+              "unclear": 0.11
+            }
+          },
+          "traffic_light": {
+            "type": "choice",
+            "choice": "red",
+            "confidence": 0.13,
+            "probabilities": {
+              "red": 0.27,
+              "yellow": 0.1,
+              "green": 0.04,
+              "off": 0.16,
+              "absent": 0.25,
+              "unclear": 0.18
+            }
+          },
+          "spatial_relation": {
+            "type": "choice",
+            "choice": "missing",
+            "confidence": 0.07,
+            "probabilities": {
+              "left": 0.22,
+              "right": 0.2,
+              "aligned": 0.12,
+              "missing": 0.26,
+              "unclear": 0.2
+            }
+          },
+          "person_on_crosswalk": {
+            "type": "noul",
+            "noul": 0.86
+          },
+          "visible_text": {
+            "type": "noul",
+            "noul": 0.88
+          }
+        },
+        "usage": {
+          "input_tokens": 8138,
+          "output_tokens": 288
+        },
+        "latency_ms": 1466.4
+      }
+    },
+    {
+      "request": 6,
+      "client_elapsed_ms": 1438.69,
+      "response": {
+        "model": "kev-latest",
+        "answers": {
+          "people_count": {
+            "type": "choice",
+            "choice": "two",
+            "confidence": 0.05,
+            "probabilities": {
+              "zero": 0.12,
+              "one": 0.17,
+              "two": 0.21,
+              "three_four": 0.19,
+              "five_plus": 0.19,
+              "unclear": 0.11
+            }
+          },
+          "traffic_light": {
+            "type": "choice",
+            "choice": "red",
+            "confidence": 0.13,
+            "probabilities": {
+              "red": 0.27,
+              "yellow": 0.1,
+              "green": 0.04,
+              "off": 0.16,
+              "absent": 0.25,
+              "unclear": 0.18
+            }
+          },
+          "spatial_relation": {
+            "type": "choice",
+            "choice": "missing",
+            "confidence": 0.07,
+            "probabilities": {
+              "left": 0.22,
+              "right": 0.2,
+              "aligned": 0.12,
+              "missing": 0.26,
+              "unclear": 0.2
+            }
+          },
+          "person_on_crosswalk": {
+            "type": "noul",
+            "noul": 0.86
+          },
+          "visible_text": {
+            "type": "noul",
+            "noul": 0.88
+          }
+        },
+        "usage": {
+          "input_tokens": 8138,
+          "output_tokens": 288
+        },
+        "latency_ms": 1426.3
+      }
+    }
+  ],
+  "comparison_limit": "Historical baseline is one earlier observation; this is not a contemporaneous old/new benchmark."
+}

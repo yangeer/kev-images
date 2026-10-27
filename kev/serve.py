@@ -34,10 +34,24 @@ class Server:
     prefix_cache: dict = field(default_factory=dict)   # (state token ids, option_isolation) -> prefix, in LRU order
     prefix_hits: int = 0
     prefix_misses: int = 0
+    vision: object | None = None
 
-    def probs(self, rec):
+    def probs(self, rec, images=None):
         """One forward pass. The state prefix (tokens up to the first question) is cached across requests, so a repeated
         state only pays for its question branches. Exact: the state's activations do not depend on the branches."""
+        if images:
+            if self.vision is None:
+                raise HTTPException(422, "restart the server with --vision")
+            with self.lock:
+                sync(self.device); t = time.time()
+                try:
+                    ps, metrics = self.vision.probs(rec, images, max_state=INFER_MAX_STATE, max_branch=INFER_MAX_BRANCH)
+                except ValueError as e:
+                    raise HTTPException(422, str(e)) from e
+                sync(self.device)
+                metrics["latency_ms"] = round((time.time() - t) * 1000, 1)
+                metrics["prefix_cache_hit"] = False
+            return [p.tolist() for p in ps], metrics
         try: enc = self.model.encode(self.tok, rec, max_state=INFER_MAX_STATE, max_branch=INFER_MAX_BRANCH)
         except ValueError as e: raise HTTPException(422, str(e))
         Ls = enc["seg"].count(0); key = (tuple(enc["ids"][:Ls]), bool(enc.get("option_isolation")))
@@ -62,7 +76,7 @@ class Server:
     def answer(self, req):
         """The /v1/systemone response body for one request."""
         rec, meta = to_record(prepare(req))
-        ps, m = self.probs(rec)
+        ps, m = self.probs(rec, req.images)
         answers = to_answers(ps, meta)
         return {"model": req.model, "answers": answers, "usage": {"input_tokens": m["tokens"], "output_tokens": output_tokens(self.tok, answers)}, "latency_ms": m["latency_ms"]}
 
@@ -124,6 +138,7 @@ def models():
     s = server()
     return {"models": [{"id": "kev-latest", "aliases": ["jev-latest"], "run": s.checkpoint.requested, "base": s.checkpoint.meta.base,
                         "lora": s.checkpoint.meta.lora, "device": s.device, "temperature": s.model.head.temperature,
+                        "vision": s.vision is not None,
                         "prefix_cache": {"size": PREFIX_CACHE_SIZE, "min_state_tokens": PREFIX_MIN_TOKENS, "hits": s.prefix_hits,
                                          "misses": s.prefix_misses, "cached_states": len(s.prefix_cache)}}]}
 
@@ -133,6 +148,7 @@ def main():
     ap.add_argument("--run", default="runs/kev")
     ap.add_argument("--fallback", default="runs/smoke")
     ap.add_argument("--port", type=int, default=8008)
+    ap.add_argument("--vision", action="store_true", help="enable image input for Qwen3.5 checkpoints")
     a = ap.parse_args()
     run = a.run if is_hub_id(a.run) or os.path.exists(f"{a.run}/head.pt") else a.fallback
     if run != a.run: print(f"{a.run} not found, falling back to {run}")
@@ -141,7 +157,8 @@ def main():
     if dev == "mps" and opts.attn is None: opts = replace(opts, attn="sdpa")   # serving default on Apple GPUs (parity measured)
     ck = Checkpoint(run)
     tok, model = ck.load(dev, opts)
-    app.state.server = Server(ck, tok, model, dev)
+    vision = ck.load_vision(model, tok, opts) if a.vision else None
+    app.state.server = Server(ck, tok, model, dev, vision=vision)
     print(f"serving {ck.requested} ({ck.path}) on {dev} :{a.port}")   # /v1/models reports the run as given, not the resolved cache path
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=a.port)
