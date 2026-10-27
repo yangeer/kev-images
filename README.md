@@ -13,11 +13,14 @@ Small Jev-like decision models you can train and run yourself.
 
 Kev is a family of small decision models built on Qwen3.5 and based on the architecture described in [Jev's Architecture Unmasked](https://archerhume.com/posts/jevs-architecture-unmasked). You can use the pretrained weights or train your own. The API matches TypeSafe's [System One](https://docs.typesafe.ai/api), so you can point their Python SDK at your local server.
 
+This fork adds image input through Qwen3.5's vision encoder and shares the image-state prefix across questions. See [Image Input](#image-input) for a request example and [Image Decisions](#image-decisions) for the implementation.
+
 ## Highlights
 
 - 0.8B, 4B, and 9B models, with training code and evaluation data.
 - Yes/no (`noul`), multiple-choice (`choice`), and rating (`score`) questions in the same request.
 - Questions share the input text but can't read each other.
+- Optional image input with `--vision`, using the existing Kev adapter and pointer head without retraining.
 - Runs on CUDA, ROCm, and Apple Silicon. The 4B and 9B models fit a 32 GB Mac using bf16; see [Serving Performance](#serving-performance) for what to expect on a Mac.
 - A web playground for trying your own inputs and checking how option order affects the answers. Or try Kev-4B and Kev-0.8B in the browser at [huggingface.co/spaces/jaredpalmer/kev](https://huggingface.co/spaces/jaredpalmer/kev), no install needed.
 
@@ -28,7 +31,7 @@ Kev is a family of small decision models built on Qwen3.5 and based on the archi
 You'll need Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-git clone https://github.com/jaredpalmer/kev.git && cd kev
+git clone https://github.com/yangeer/kev-images.git && cd kev-images
 uv sync --extra serve
 KEV_DTYPE=bf16 uv run --extra serve python -m kev.serve --run jaredpalmer/kev-4b --port 8009
 ```
@@ -103,6 +106,50 @@ print(response.choices["tone"].choice)
 print(response.scores["urgency"].score)
 ```
 
+### Image Input
+
+Start the server with `--vision` and a dense Qwen3.5-based Kev checkpoint:
+
+```bash
+uv run --extra serve python -m kev.serve \
+  --run jaredpalmer/kev-0.8b --port 8009 --vision
+```
+
+`--run` also accepts a local Kev checkpoint directory. If its matching base revision is already cached, set `HF_HUB_OFFLINE=1` to load without network access. `GET /v1/models` reports `vision: true` when image input is enabled.
+
+Send up to eight images as base64-encoded PNG or JPEG files, without a `data:` prefix. The `images` field is an extension provided by this fork; use an HTTP client for these requests:
+
+```python
+import base64
+from pathlib import Path
+
+import httpx
+
+response = httpx.post(
+    "http://127.0.0.1:8009/v1/systemone",
+    json={
+        "state": "Answer using the attached photograph.",
+        "images": [base64.b64encode(Path("street.jpg").read_bytes()).decode("ascii")],
+        "questions": {
+            "light": {
+                "type": "choice",
+                "instructions": "Which traffic light is illuminated?",
+                "criteria": {"red": "Red", "yellow": "Yellow", "green": "Green", "unknown": "Not visible or unclear"},
+            },
+            "person": {"type": "noul", "instructions": "Is a person visible?"},
+        },
+    },
+    timeout=180,
+    trust_env=False,
+)
+response.raise_for_status()
+print(response.json()["answers"])
+```
+
+Images are appended to the state in list order. Questions and options remain text, and the response uses the existing `choice`, `noul`, and `score` types. Requests without images use the original text path. Image tokens count toward the context limits; overlong inputs return `422`.
+
+The adapter and pointer head were trained on text. Image decisions reuse the base model's visual features, and the saved temperature has not been calibrated for image tasks. Check accuracy and probabilities on your own labelled images. The existing playground and Docker launcher do not enable image input automatically; the command above starts the image-enabled API.
+
 ### Playground
 
 With the server still running, open another terminal. You'll need Node 20.9+:
@@ -171,6 +218,7 @@ The original [Kev-0.5B](https://huggingface.co/jaredpalmer/kev-0.5b) used Qwen2.
 {
   "state": "…",                          // string | object | array — the content to evaluate
   "model": "kev-latest",
+  "images": [],                          // optional: up to 8 base64 image files; requires --vision in this fork
   "questions": {
     "<id>": {                            // you choose the id; the model never sees it
       "type": "noul" | "choice" | "score",
@@ -218,6 +266,35 @@ The pointer head scores each option's `</opt>` hidden state against the question
 Training uses cross-entropy on the correct answer. The adapter and head are trained together; the rest of the base weights stay fixed. Training examples and API requests use the same text format. No Jev outputs were used for training.
 
 Asking questions together or separately produces probabilities within 4e-6 in the fp32 tests. This does **not** mean option order is irrelevant: options within a question can still affect one another. See [the model code](kev/model.py) and [parity tests](tests/test_model.py).
+
+### Image Decisions
+
+The image path keeps the base model's pretrained vision encoder and projection. `Checkpoint.load()` loads the Kev language backbone, LoRA, pointer head, and temperature. `Checkpoint.load_vision()` then loads the matching full Qwen3.5 model and assigns that adapted language backbone to `backbone.language_model`. The visual weights and the decision weights are reused; this change does not train a new image encoder or decision head.
+
+```text
+Image files → base64 over HTTP → RGB pixels
+                                  ↓
+State text + image markers → AutoProcessor
+                                  ↓
+                   Shared multimodal state
+                                  ↓
+          Vision encoder + adapted language backbone, once
+                                  ↓
+                Prefix cache + M-RoPE continuation position
+                     ├→ independent copy + question 1 → pointer head
+                     ├→ independent copy + question 2 → pointer head
+                     └→ independent copy + question 3 → pointer head
+```
+
+`AutoProcessor` prepares pixels, tokenizes text, and expands each image marker into the required number of image tokens. It does not compute learned visual features. The current base uses 16-pixel patches and merges each 2×2 spatial patch group, so an image with preprocessed grid `[T, H, W]` needs `T × H × W / 4` image slots. This count is known from the resized dimensions before the vision network runs. The vision encoder later supplies one feature vector for each slot, replacing its placeholder embedding. See [the image-input guide](docs/kev-image-input.md) for a worked example and the processor's input fields.
+
+`VisionPredictor.encode_prefix()` processes the image state once and tokenizes question branches separately, keeping Kev's original option and decision delimiters. `prefix()` asks Qwen's `get_rope_index()` for the multimodal positions and caches the state before any question is added. That cache includes attention keys and values plus the hybrid layers' recurrent and convolution states.
+
+`probs_with_prefix()` deep-copies the original cache for each question chunk and expands its batch dimension into independent rows. Only question and option tokens enter the language backbone at this stage. The attention mask covers the cached state and new tokens; M-RoPE continues from the saved position rather than assuming the next position equals the number of cached tokens. The original pointer head scores the decision and option-boundary hidden states from each branch.
+
+This cache is shared within one request. It is not stored in the text server's cross-request LRU, so `KEV_PREFIX_CACHE` does not control image-state sharing. `usage.input_tokens` continues to count the logical full input for each question, excluding padding; it does not report the reduced number of tokens processed after caching.
+
+The [vision tests](tests/test_vision_batch.py) compare cached decisions with a full multimodal forward, check multiple images and question lengths, and verify that chunking, unrelated requests, and cache reuse preserve independent question states. These checks establish numerical consistency, not visual task accuracy. Implementation: [vision.py](kev/vision.py), [checkpoint.py](kev/checkpoint.py), and [state-sharing guide](docs/shared-state-and-question-isolation.md).
 
 ## Serving Performance
 
